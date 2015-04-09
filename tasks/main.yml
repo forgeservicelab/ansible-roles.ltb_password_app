@@ -1,0 +1,52 @@
+---
+# tasks file for ltb_password_app
+- name: Install Apache and PHP
+  yum:
+    name: "{{ item }}"
+  with_items:
+    - php
+    - php-PHPMailer
+    - php-ldap
+    - httpd
+
+- name: Upload Apache configuration
+  template:
+    src: password.j2
+    dest: /etc/httpd/conf.d/password.extra
+  notify: restart apache
+
+- name: Enable SSH_AUTH_SOCK on sudo calls
+  copy:
+    src: ssh_auth_sock
+    dest: /etc/sudoers.d/ssh_auth_sock
+    validate: 'visudo -cf %s'
+    owner: root
+    group: root
+    mode: 0440
+
+- name: Get Password app
+  git:
+    repo: "{{ ltb_password_app_repo }}"
+    accept_hostkey: yes
+    ssh_opts: -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+    dest: "{{ ltb_password_app_dir }}"
+    version: "{{ ltb_password_app_version | default('HEAD') }}"
+  notify: restart apache
+
+- name: Configure LDAP credentials
+  replace:
+    dest: "{{ ltb_password_app_dir }}/conf/config.inc.php"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.line }}"
+  with_items:
+    - regexp: \[ ldap_url_placeholder \]
+      line: "{{ ltb_ldap_url }}"
+    - regexp: \[ ldap_binddn_placeholder \]
+      line: "{{ ltb_ldap_binddn }}"
+    - regexp: \[ ldap_bindpw_placeholder \]
+      line: "{{ ltb_ldap_bindpw }}"
+    - regexp: \[ recaptcha_publickey_placeholder \]
+      line: "{{ ltb_recaptcha_pub }}"
+    - regexp: \[ recaptcha_privatekey_placeholder \]
+      line: "{{ ltb_recaptcha_priv }}"
+  notify: restart apache

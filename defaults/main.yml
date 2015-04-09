@@ -1,0 +1,3 @@
+---
+# defaults file for ltb_password_app
+ltb_password_app_dir: /var/www/password
